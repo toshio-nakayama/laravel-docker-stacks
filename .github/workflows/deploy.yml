@@ -20,35 +20,35 @@ jobs:
 
       - name: Render templates
         run: |
-          jinja2 templates/traefik/docker-compose.yml.j2 templates/traefik/env.${{ github.ref_name }} \
-            --format env > templates/traefik/docker-compose.yml
-          jinja2 templates/laravel/docker-compose.yml.j2 templates/laravel/env.${{ github.ref_name }} \
-            --format env > templates/laravel/docker-compose.yml
+          jinja2 templates/traefik/docker-compose.yml.j2 templates/traefik/env.\${{ github.ref_name }} --format env > templates/traefik/docker-compose.yml
+          jinja2 templates/laravel/docker-compose.yml.j2 templates/laravel/env.\${{ github.ref_name }} --format env > templates/laravel/docker-compose.yml
+          jinja2 templates/laravel/docker/apache/000-default.conf.j2 templates/laravel/env.\${{ github.ref_name }} --format env > templates/laravel/docker/apache/000-default.conf
 
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          printf "%s" "${{ secrets.SSH_KEY_BASE64 }}" | base64 -d > ~/.ssh/id_rsa
+          printf "%s" "\${{ secrets.SSH_KEY_BASE64 }}" | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "\${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Sync files to server
         run: |
-          # Traefik テンプレートをサーバへ同期
+          # Traefik テンプレート同期
           rsync -av --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
-            templates/traefik/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
-          # Laravel は src/ と .env を除外して同期
+            templates/traefik/ \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
+
+          # Laravel テンプレート同期（src/, .env 除外）
           rsync -av --delete \
             --exclude 'src/' --exclude 'src/**' --exclude '.env' \
             -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
-            templates/laravel/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
+            templates/laravel/ \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }}:~/deploy/laravel/
 
       - name: Restart docker-compose services
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash << 'EOH'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }} bash << 'EOH'
             cd ~/docker-traefik
             docker-compose pull && docker-compose down && docker-compose up -d
             cd ~/deploy/laravel
-            mv env.${{ github.ref_name }} .env
+            mv env.\${{ github.ref_name }} .env
             docker-compose pull && docker-compose down && docker-compose up -d
           EOH
