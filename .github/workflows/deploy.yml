@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           sudo apt-get update
           sudo apt-get install -y rsync openssh-client
@@ -22,44 +22,44 @@ jobs:
       - name: Render Traefik Compose
         run: |
           jinja2 templates/traefik/docker-compose.yml.j2 \
-            templates/traefik/env.${{ github.ref_name }} \
+            templates/traefik/env.\${{ github.ref_name }} \
             --format env > templates/traefik/docker-compose.yml
 
       - name: Render Laravel Compose
         run: |
           jinja2 templates/laravel/docker-compose.yml.j2 \
-            templates/laravel/env.${{ github.ref_name }} \
+            templates/laravel/env.\${{ github.ref_name }} \
             --format env > templates/laravel/docker-compose.yml
 
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
+          echo "\${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "\${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Sync Traefik to server
+      - name: Sync traefik/
         run: |
           rsync -av --delete -e "ssh -i ~/.ssh/id_ed25519" \
-            templates/traefik/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
+            templates/traefik/ \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
 
-      - name: Sync Laravel to server
+      - name: Sync laravel/
         run: |
           rsync -av --delete -e "ssh -i ~/.ssh/id_ed25519" \
-            templates/laravel/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
+            templates/laravel/ \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }}:~/deploy/laravel/
 
-      - name: Restart services on server
+      - name: Restart services
         run: |
-          ssh -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash << 'EOF2'
-            # Traefik 停止→起動
+          ssh -i ~/.ssh/id_ed25519 \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }} bash << 'EOF2'
+            # Traefik
             cd ~/docker-traefik
             docker-compose pull
             docker-compose down
             docker-compose up -d
 
-            # Laravel 停止→起動 (.env リネーム)
+            # Laravel (.env を mv してから)
             cd ~/deploy/laravel
-            mv env.${{ github.ref_name }} .env
+            mv env.\${{ github.ref_name }} .env
             docker-compose pull
             docker-compose down
             docker-compose up -d
