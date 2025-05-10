@@ -13,8 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install jinja2-cli
-        run: pip3 install jinja2-cli
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y rsync openssh-client
+          pip3 install jinja2-cli
 
       - name: Render Traefik Compose
         run: |
@@ -28,39 +30,32 @@ jobs:
             templates/laravel/env.${{ github.ref_name }} \
             --format env > templates/laravel/docker-compose.yml
 
-      - name: Copy Traefik stack to server
-        uses: appleboy/scp-action@v0.1.1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          source: |
-            templates/traefik/
-          target: ~/deploy/traefik/
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Copy Laravel stack to server
-        uses: appleboy/scp-action@v0.1.1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          source: |
-            templates/laravel/
-          target: ~/deploy/laravel/
+      - name: Sync Traefik to server
+        run: |
+          rsync -av --delete -e "ssh -i ~/.ssh/id_ed25519" \
+            templates/traefik/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/traefik/
 
-      - name: Restart services via SSH
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script: |
+      - name: Sync Laravel to server
+        run: |
+          rsync -av --delete -e "ssh -i ~/.ssh/id_ed25519" \
+            templates/laravel/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
+
+      - name: Restart services on server
+        run: |
+          ssh -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash << 'EOF2'
+            # Traefik
             cd ~/deploy/traefik
             docker-compose pull && docker-compose up -d
 
+            # Laravel
             cd ~/deploy/laravel
             mv env.${{ github.ref_name }} .env
             docker-compose pull && docker-compose up -d
+          EOF2
