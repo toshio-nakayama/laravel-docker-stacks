@@ -41,18 +41,18 @@ jobs:
       - name: Sync Traefik to server
         run: |
           rsync -av --delete -e "ssh -i ~/.ssh/id_ed25519" \
-            templates/traefik/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/traefik/
+            templates/traefik/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
 
       - name: Sync Laravel to server
         run: |
-          rsync -av --delete -e "ssh -i ~/.ssh/id_ed25529" \
+          rsync -av --delete -e "ssh -i ~/.ssh/id_ed25519" \
             templates/laravel/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
 
       - name: Restart services on server
         run: |
           ssh -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash << 'EOF2'
             # Traefik 停止→起動
-            cd ~/deploy/traefik
+            cd ~/docker-traefik
             docker-compose pull
             docker-compose down
             docker-compose up -d
