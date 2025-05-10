@@ -19,22 +19,22 @@ jobs:
       - name: Render Traefik Compose
         run: |
           jinja2 templates/traefik/docker-compose.yml.j2 \
-            templates/traefik/env.\${{ github.ref_name }} \
+            templates/traefik/env.${{ github.ref_name }} \
             --format env > templates/traefik/docker-compose.yml
 
       - name: Render Laravel Compose
         run: |
           jinja2 templates/laravel/docker-compose.yml.j2 \
-            templates/laravel/env.\${{ github.ref_name }} \
+            templates/laravel/env.${{ github.ref_name }} \
             --format env > templates/laravel/docker-compose.yml
 
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v0.1.6
         with:
-          host: \${{ secrets.SSH_HOST }}
-          username: \${{ secrets.SSH_USER }}
-          key: \${{ secrets.SSH_KEY }}
-          port: \${{ secrets.SSH_PORT || '22' }}
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || '22' }}
           script: |
             # Traefik 配置
             mkdir -p ~/deploy/traefik
@@ -46,7 +46,7 @@ jobs:
             mkdir -p ~/deploy/laravel
             rsync -av \
               ~/docker-stacks/laravel-docker-stacks/templates/laravel/docker-compose.yml \
-              ~/docker-stacks/laravel-docker-stacks/templates/laravel/env.\${{ github.ref_name }}:.env \
+              ~/docker-stacks/laravel-docker-stacks/templates/laravel/env.${{ github.ref_name }}:.env \
               ~/docker-stacks/laravel-docker-stacks/templates/laravel/Dockerfile.apache \
               ~/docker-stacks/laravel-docker-stacks/templates/laravel/docker/apache/000-default.conf \
               ~/deploy/laravel/
