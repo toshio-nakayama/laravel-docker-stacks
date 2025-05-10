@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y rsync openssh-client
@@ -31,35 +31,35 @@ jobs:
             templates/laravel/env.\${{ github.ref_name }} \
             --format env > templates/laravel/docker-compose.yml
 
-      - name: Start ssh-agent
-        uses: webfactory/ssh-agent@v0.5.4
-        with:
-          ssh-private-key: \${{ secrets.SSH_KEY }}
-
-      - name: Add SSH host to known_hosts
+      - name: Setup SSH key from Base64 secret
         run: |
+          mkdir -p ~/.ssh
+          echo "\${{ secrets.SSH_KEY_BASE64 }}" | base64 -d > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "\${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Sync Traefik to server
         run: |
-          rsync -av --delete -e "ssh -o StrictHostKeyChecking=no" \
+          rsync -av --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
             templates/traefik/ \
             \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
 
       - name: Sync Laravel to server
         run: |
-          rsync -av --delete -e "ssh -o StrictHostKeyChecking=no" \
+          rsync -av --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
             templates/laravel/ \
             \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }}:~/deploy/laravel/
 
       - name: Restart services on server
         run: |
-          ssh -o StrictHostKeyChecking=no \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }} bash << 'EOF2'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }} bash << 'EOF2'
+            # Traefik 再起動
             cd ~/docker-traefik
             docker-compose pull
             docker-compose down
             docker-compose up -d
 
+            # Laravel (.env をリネームして)
             cd ~/deploy/laravel
             mv env.\${{ github.ref_name }} .env
             docker-compose pull
