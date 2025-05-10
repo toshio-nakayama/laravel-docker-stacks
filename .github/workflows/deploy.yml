@@ -22,46 +22,45 @@ jobs:
       - name: Render Traefik Compose
         run: |
           jinja2 templates/traefik/docker-compose.yml.j2 \
-            templates/traefik/env.\${{ github.ref_name }} \
+            templates/traefik/env.${{ github.ref_name }} \
             --format env > templates/traefik/docker-compose.yml
 
       - name: Render Laravel Compose
         run: |
           jinja2 templates/laravel/docker-compose.yml.j2 \
-            templates/laravel/env.\${{ github.ref_name }} \
+            templates/laravel/env.${{ github.ref_name }} \
             --format env > templates/laravel/docker-compose.yml
 
       - name: Setup SSH key from Base64 secret
         run: |
           mkdir -p ~/.ssh
-          echo "\${{ secrets.SSH_KEY_BASE64 }}" | base64 -d > ~/.ssh/id_rsa
+          # 改行を除去してからデコード
+          echo ${{ secrets.SSH_KEY_BASE64 }} | tr -d '\r\n' | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "\${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: Sync Traefik to server
         run: |
           rsync -av --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
             templates/traefik/ \
-            \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
 
       - name: Sync Laravel to server
         run: |
           rsync -av --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
             templates/laravel/ \
-            \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }}:~/deploy/laravel/
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
 
       - name: Restart services on server
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }} bash << 'EOF2'
-            # Traefik 再起動
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash << 'EOF2'
             cd ~/docker-traefik
             docker-compose pull
             docker-compose down
             docker-compose up -d
 
-            # Laravel (.env をリネームして)
             cd ~/deploy/laravel
-            mv env.\${{ github.ref_name }} .env
+            mv env.${{ github.ref_name }} .env
             docker-compose pull
             docker-compose down
             docker-compose up -d
