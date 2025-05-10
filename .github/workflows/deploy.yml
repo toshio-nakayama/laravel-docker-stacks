@@ -31,17 +31,3 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Sync files to server
-        run: |
-          rsync -av --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
-            templates/traefik/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/ \
-          rsync -av --delete --exclude 'src/' --exclude '.env' -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
-            templates/laravel/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
-        run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash << 'EOF'
-            cd ~/docker-traefik
-            docker-compose pull && docker-compose down && docker-compose up -d
-            cd ~/deploy/laravel
-            mv env.${{ github.ref_name }} .env
-            docker-compose pull && docker-compose down && docker-compose up -d
-          EOF
