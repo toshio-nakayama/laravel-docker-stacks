@@ -1,0 +1,51 @@
+name: Deploy Laravel Docker Stacks
+
+on:
+  push:
+    branches:
+      - staging
+      - main
+
+jobs:
+  render-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install jinja2-cli
+        run: pip3 install jinja2-cli
+
+      - name: Render Traefik Compose
+        run: |
+          jinja2 ../templates/traefik/docker-compose.yml.j2 \
+            ../templates/traefik/env.${{ github.ref_name }} \
+            --format env > traefik/docker-compose.yml
+
+      - name: Render Laravel Compose
+        run: |
+          jinja2 ../templates/laravel/docker-compose.yml.j2 \
+            ../templates/laravel/env.${{ github.ref_name }} \
+            --format env > docker-compose.yml
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          script: |
+            # Traefik 配置
+            mkdir -p ~/deploy/traefik
+            rsync -av ~/docker-stacks/laravel-docker-stacks/traefik/ ~/deploy/traefik/
+            cd ~/deploy/traefik
+            docker-compose pull && docker-compose up -d
+
+            # Laravel 配置
+            mkdir -p ~/deploy/laravel
+            rsync -av ~/docker-stacks/laravel-docker-stacks/docker-compose.yml \
+                      ~/docker-stacks/laravel-docker-stacks/Dockerfile.apache \
+                      ~/deploy/laravel/
+            cd ~/deploy/laravel
+            docker-compose pull && docker-compose up -d
