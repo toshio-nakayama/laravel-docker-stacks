@@ -36,7 +36,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           source: |
-            templates/traefik/:
+            templates/traefik/
           target: ~/deploy/traefik/
 
       - name: Copy Laravel stack to server
@@ -47,7 +47,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           source: |
-            templates/laravel/:
+            templates/laravel/
           target: ~/deploy/laravel/
 
       - name: Restart services via SSH
@@ -58,11 +58,9 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            # Traefik を再起動
             cd ~/deploy/traefik
             docker-compose pull && docker-compose up -d
 
-            # Laravel の .env を準備して再起動
             cd ~/deploy/laravel
             mv env.${{ github.ref_name }} .env
             docker-compose pull && docker-compose up -d
