@@ -62,13 +62,11 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            # Traefik 再起動
+            # Traefik を再起動
             cd ~/deploy/traefik
             docker-compose pull && docker-compose up -d
 
-            # Laravel 側で env ファイル名を .env にリネーム
+            # envファイルを .env にリネームして Laravel を再起動
             cd ~/deploy/laravel
             mv env.${{ github.ref_name }} .env
-
-            # Laravel 再起動
             docker-compose pull && docker-compose up -d
