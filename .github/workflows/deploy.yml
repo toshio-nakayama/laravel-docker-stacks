@@ -2,66 +2,48 @@ name: Deploy Laravel Docker Stacks
 
 on:
   push:
-    branches:
-      - staging
-      - main
+    branches: [ staging, main ]
 
 jobs:
-  render-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y rsync openssh-client
           pip3 install jinja2-cli
 
-      - name: Render Traefik Compose
+      - name: Render templates
         run: |
-          jinja2 templates/traefik/docker-compose.yml.j2 \
-            templates/traefik/env.${{ github.ref_name }} \
+          jinja2 templates/traefik/docker-compose.yml.j2 templates/traefik/env.${{ github.ref_name }} \
             --format env > templates/traefik/docker-compose.yml
-
-      - name: Render Laravel Compose
-        run: |
-          jinja2 templates/laravel/docker-compose.yml.j2 \
-            templates/laravel/env.${{ github.ref_name }} \
+          jinja2 templates/laravel/docker-compose.yml.j2 templates/laravel/env.${{ github.ref_name }} \
             --format env > templates/laravel/docker-compose.yml
 
       - name: Setup SSH key from Base64 secret
         run: |
           mkdir -p ~/.ssh
-          # printf で確実に Base64 をデコード
-          printf "%s" "${{ secrets.SSH_KEY_BASE64 }}" | base64 --decode > ~/.ssh/id_rsa
+          printf "%s" "${{ secrets.SSH_KEY_BASE64 }}" | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Sync Traefik to server
+      - name: Sync files to server
         run: |
           rsync -av --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
-            templates/traefik/ \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
-
-      - name: Sync Laravel to server
-        run: |
+            templates/traefik/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
           rsync -av --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
-            templates/laravel/ \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
+            templates/laravel/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
 
-      - name: Restart services on server
+      - name: Restart docker-compose services
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash << 'EOF2'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash << 'EOF'
             cd ~/docker-traefik
-            docker-compose pull
-            docker-compose down
-            docker-compose up -d
-
+            docker-compose pull && docker-compose down && docker-compose up -d
             cd ~/deploy/laravel
             mv env.${{ github.ref_name }} .env
-            docker-compose pull
-            docker-compose down
-            docker-compose up -d
-          EOF2
+            docker-compose pull && docker-compose down && docker-compose up -d
+          EOF
