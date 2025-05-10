@@ -35,20 +35,18 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || '22' }}
+          sync: |
+            # テンプレートから remote deploy フォルダへ
+            templates/traefik/:~/deploy/traefik/
+            templates/laravel/docker-compose.yml:~/deploy/laravel/docker-compose.yml
+            templates/laravel/env.${{ github.ref_name }}:~/deploy/laravel/.env
+            templates/laravel/Dockerfile.apache:~/deploy/laravel/Dockerfile.apache
+            templates/laravel/docker/apache/000-default.conf:~/deploy/laravel/000-default.conf
           script: |
-            # Traefik 配置
-            mkdir -p ~/deploy/traefik
-            rsync -av ~/docker-stacks/laravel-docker-stacks/templates/traefik/ ~/deploy/traefik/
+            # Traefik 再起動
             cd ~/deploy/traefik
             docker-compose pull && docker-compose up -d
 
-            # Laravel 配置
-            mkdir -p ~/deploy/laravel
-            rsync -av \
-              ~/docker-stacks/laravel-docker-stacks/templates/laravel/docker-compose.yml \
-              ~/docker-stacks/laravel-docker-stacks/templates/laravel/env.${{ github.ref_name }}:.env \
-              ~/docker-stacks/laravel-docker-stacks/templates/laravel/Dockerfile.apache \
-              ~/docker-stacks/laravel-docker-stacks/templates/laravel/docker/apache/000-default.conf \
-              ~/deploy/laravel/
+            # Laravel 再起動
             cd ~/deploy/laravel
             docker-compose pull && docker-compose up -d
