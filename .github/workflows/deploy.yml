@@ -15,7 +15,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y rsync openssh-client
+          sudo apt-get update
+          sudo apt-get install -y rsync openssh-client
           pip3 install jinja2-cli
 
       - name: Render Traefik Compose
@@ -35,7 +36,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Sync Traefik to server
         run: |
@@ -44,18 +45,22 @@ jobs:
 
       - name: Sync Laravel to server
         run: |
-          rsync -av --delete -e "ssh -i ~/.ssh/id_ed25519" \
+          rsync -av --delete -e "ssh -i ~/.ssh/id_ed25529" \
             templates/laravel/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
 
       - name: Restart services on server
         run: |
           ssh -i ~/.ssh/id_ed25519 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash << 'EOF2'
-            # Traefik
+            # Traefik 停止→起動
             cd ~/deploy/traefik
-            docker-compose pull && docker-compose up -d
+            docker-compose pull
+            docker-compose down
+            docker-compose up -d
 
-            # Laravel
+            # Laravel 停止→起動 (.env リネーム)
             cd ~/deploy/laravel
             mv env.${{ github.ref_name }} .env
-            docker-compose pull && docker-compose up -d
+            docker-compose pull
+            docker-compose down
+            docker-compose up -d
           EOF2
