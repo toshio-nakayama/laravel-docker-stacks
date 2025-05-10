@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           sudo apt-get update
           sudo apt-get install -y rsync openssh-client
@@ -34,10 +34,10 @@ jobs:
       - name: Setup SSH key from Base64 secret
         run: |
           mkdir -p ~/.ssh
-          # 改行を除去してからデコード
-          echo ${{ secrets.SSH_KEY_BASE64 }} | tr -d '\r\n' | base64 -d > ~/.ssh/id_rsa
+          # printf で確実に Base64 をデコード
+          printf "%s" "${{ secrets.SSH_KEY_BASE64 }}" | base64 --decode > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Sync Traefik to server
         run: |
