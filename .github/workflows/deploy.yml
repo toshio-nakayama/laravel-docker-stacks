@@ -19,46 +19,42 @@ jobs:
           sudo apt-get install -y rsync openssh-client
           pip3 install jinja2-cli
 
-      - name: Render Traefik Compose
+      - name: Render Traefik
         run: |
           jinja2 templates/traefik/docker-compose.yml.j2 \
-            templates/traefik/env.\${{ github.ref_name }} \
+            templates/traefik/env.${{ github.ref_name }} \
             --format env > templates/traefik/docker-compose.yml
 
-      - name: Render Laravel Compose
+      - name: Render Laravel
         run: |
           jinja2 templates/laravel/docker-compose.yml.j2 \
-            templates/laravel/env.\${{ github.ref_name }} \
+            templates/laravel/env.${{ github.ref_name }} \
             --format env > templates/laravel/docker-compose.yml
 
       - name: Start ssh-agent
         uses: webfactory/ssh-agent@v0.5.4
         with:
-          ssh-private-key: \${{ secrets.SSH_KEY }}
+          ssh-private-key: ${{ secrets.SSH_KEY }}
 
       - name: Sync Traefik to server
         run: |
           rsync -av --delete -e ssh \
             templates/traefik/ \
-            \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
 
       - name: Sync Laravel to server
         run: |
           rsync -av --delete -e ssh \
             templates/laravel/ \
-            \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }}:~/deploy/laravel/
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
 
-      - name: Restart services on server
+      - name: Restart services
         run: |
-          ssh \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }} bash << 'EOF2'
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash << 'EOF2'
             cd ~/docker-traefik
-            docker-compose pull
-            docker-compose down
-            docker-compose up -d
+            docker-compose pull && docker-compose down && docker-compose up -d
 
             cd ~/deploy/laravel
-            mv env.\${{ github.ref_name }} .env
-            docker-compose pull
-            docker-compose down
-            docker-compose up -d
+            mv env.${{ github.ref_name }} .env
+            docker-compose pull && docker-compose down && docker-compose up -d
           EOF2
