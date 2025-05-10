@@ -34,10 +34,11 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "\${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
+          # シークレットの中のCRLFを除去して正しく書き出す
+          echo "\${{ secrets.SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
+          # ホストキー検証 off
           printf "Host *\n  StrictHostKeyChecking no\n" >> ~/.ssh/config
-          ssh-keyscan -H "\${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts || true
 
       - name: Sync Traefik to server
         run: |
@@ -54,13 +55,11 @@ jobs:
       - name: Restart services on server
         run: |
           ssh -i ~/.ssh/id_ed25519 \${{ secrets.SSH_USER }}@\${{ secrets.SSH_HOST }} bash << 'EOF2'
-            # Traefik
             cd ~/docker-traefik
             docker-compose pull
             docker-compose down
             docker-compose up -d
 
-            # Laravel
             cd ~/deploy/laravel
             mv env.\${{ github.ref_name }} .env
             docker-compose pull
