@@ -38,7 +38,6 @@ jobs:
           source: |
             templates/traefik/docker-compose.yml
             templates/traefik/traefik.yml
-            templates/traefik/acme.json
           target: ~/deploy/traefik/
 
       - name: Copy Laravel stack to server
@@ -50,7 +49,7 @@ jobs:
           port: ${{ secrets.SSH_PORT || 22 }}
           source: |
             templates/laravel/docker-compose.yml
-            templates/laravel/env.${{ github.ref_name }}:/.env
+            templates/laravel/env.${{ github.ref_name }}
             templates/laravel/Dockerfile.apache
             templates/laravel/docker/apache/000-default.conf
           target: ~/deploy/laravel/
@@ -63,8 +62,13 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
+            # Traefik 再起動
             cd ~/deploy/traefik
             docker-compose pull && docker-compose up -d
 
+            # Laravel 側で env ファイル名を .env にリネーム
             cd ~/deploy/laravel
+            mv env.${{ github.ref_name }} .env
+
+            # Laravel 再起動
             docker-compose pull && docker-compose up -d
