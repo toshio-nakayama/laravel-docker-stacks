@@ -28,24 +28,43 @@ jobs:
             templates/laravel/env.${{ github.ref_name }} \
             --format env > templates/laravel/docker-compose.yml
 
-      - name: Deploy to Server via SSH
+      - name: Copy Traefik stack to server
+        uses: appleboy/scp-action@v0.1.1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: |
+            templates/traefik/docker-compose.yml
+            templates/traefik/traefik.yml
+            templates/traefik/acme.json
+          target: ~/deploy/traefik/
+
+      - name: Copy Laravel stack to server
+        uses: appleboy/scp-action@v0.1.1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: |
+            templates/laravel/docker-compose.yml
+            templates/laravel/env.${{ github.ref_name }}:/.env
+            templates/laravel/Dockerfile.apache
+            templates/laravel/docker/apache/000-default.conf
+          target: ~/deploy/laravel/
+
+      - name: Restart services via SSH
         uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || '22' }}
-          sync: |
-            templates/traefik/:~/deploy/traefik/
-            templates/laravel/docker-compose.yml:~/deploy/laravel/docker-compose.yml
-            templates/laravel/env.${{ github.ref_name }}:~/deploy/laravel/.env
-            templates/laravel/Dockerfile.apache:~/deploy/laravel/Dockerfile.apache
-            templates/laravel/docker/apache/000-default.conf:~/deploy/laravel/000-default.conf
+          port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            # Traefik 再起動
             cd ~/deploy/traefik
             docker-compose pull && docker-compose up -d
 
-            # Laravel 再起動
             cd ~/deploy/laravel
             docker-compose pull && docker-compose up -d
