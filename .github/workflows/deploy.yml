@@ -63,6 +63,12 @@ jobs:
             templates/laravel/ \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
 
+          # (5) Laravel アプリケーションコード同期
+          rsync -av --delete \
+            -e "ssh $SSH_OPTS" \
+            src/ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/src/
+
       - name: Restart docker-compose services
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash << 'EOH'
