@@ -31,13 +31,22 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Sync files to server
+            - name: Sync files to server
         run: |
-          # Traefik テンプレート同期
-          rsync -av --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
-            templates/traefik/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
+          # (1) rsync 前に権限を確保
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
+            -p "${{ secrets.SSH_PORT }}" \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "if [ -f ~/docker-traefik/traefik/acme.json ]; then chmod 600 ~/docker-traefik/traefik/acme.json; fi"
 
-          # acme.json のパーミッションを600に設定
+          # (2) acme.json を除外して Traefik テンプレート同期
+          rsync -av --delete \
+            --exclude 'acme.json' \
+            -e "ssh -i ~/.ssh/id_rsa -p '${{ secrets.SSH_PORT }}' -o StrictHostKeyChecking=no" \
+            templates/traefik/ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
+
+          # (3) rsync 後に acme.json を作成＆パーミッション固定
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
             -p "${{ secrets.SSH_PORT }}" \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
@@ -46,8 +55,9 @@ jobs:
           # Laravel テンプレート同期（src/, .env 除外）
           rsync -av --delete \
             --exclude 'src/' --exclude 'src/**' --exclude '.env' \
-            -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
-            templates/laravel/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
+            -e "ssh -i ~/.ssh/id_rsa -p '${{ secrets.SSH_PORT }}' -o StrictHostKeyChecking=no" \
+            templates/laravel/ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
 
       - name: Restart docker-compose services
         run: |
