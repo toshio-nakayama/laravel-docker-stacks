@@ -31,7 +31,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-            - name: Sync files to server
+      - name: Sync files to server
         run: |
           # (1) rsync 前に権限を確保
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
