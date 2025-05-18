@@ -37,6 +37,12 @@ jobs:
           rsync -av --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
             templates/traefik/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
 
+          # acme.json のパーミッションを600に設定
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
+            -p "${{ secrets.SSH_PORT }}" \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ~/docker-traefik/traefik && touch acme.json && chmod 600 acme.json"
+
           # Laravel テンプレート同期（src/, .env 除外）
           rsync -av --delete \
             --exclude 'src/' --exclude 'src/**' --exclude '.env' \
