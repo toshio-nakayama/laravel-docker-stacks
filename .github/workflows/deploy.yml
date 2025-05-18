@@ -47,8 +47,8 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} bash << 'EOH'
             cd ~/docker-traefik
-            docker-compose pull && docker-compose down && docker-compose up -d
+            docker-compose pull && docker-compose down && docker-compose up -d --build
             cd ~/deploy/laravel
             mv env.${{ github.ref_name }} .env
-            docker-compose pull && docker-compose down && docker-compose up -d
+            docker-compose pull && docker-compose down && docker-compose up -d --build
           EOH
