@@ -1,0 +1,5 @@
+# Python 仮想環境
+.venv/
+
+# Jinja2 レンダリングで生成される env ファイル
+templates/laravel/.env
