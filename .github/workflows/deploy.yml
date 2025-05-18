@@ -32,30 +32,34 @@ jobs:
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Sync files to server
+        env:
+          SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
-          # (1) rsync 前に権限を確保
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
-            -p "${{ secrets.SSH_PORT }}" \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+          # SSH_OPTS を組み立て（ポート設定があれば -p を付与）
+          SSH_OPTS="-i ~/.ssh/id_rsa -o StrictHostKeyChecking=no"
+          if [ -n "$SSH_PORT" ]; then
+            SSH_OPTS="$SSH_OPTS -p $SSH_PORT"
+          fi
+
+          # (1) rsync 前に acme.json の権限を確保
+          ssh $SSH_OPTS ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "if [ -f ~/docker-traefik/traefik/acme.json ]; then chmod 600 ~/docker-traefik/traefik/acme.json; fi"
 
           # (2) acme.json を除外して Traefik テンプレート同期
           rsync -av --delete \
             --exclude 'acme.json' \
-            -e "ssh -i ~/.ssh/id_rsa -p '${{ secrets.SSH_PORT }}' -o StrictHostKeyChecking=no" \
+            -e "ssh $SSH_OPTS" \
             templates/traefik/ \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker-traefik/traefik/
 
-          # (3) rsync 後に acme.json を作成＆パーミッション固定
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
-            -p "${{ secrets.SSH_PORT }}" \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+          # (3) rsync 後に acme.json を作成＆パーミッションを 600 に固定
+          ssh $SSH_OPTS ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "cd ~/docker-traefik/traefik && touch acme.json && chmod 600 acme.json"
 
-          # Laravel テンプレート同期（src/, .env 除外）
+          # (4) Laravel テンプレート同期（src/, .env を除外）
           rsync -av --delete \
             --exclude 'src/' --exclude 'src/**' --exclude '.env' \
-            -e "ssh -i ~/.ssh/id_rsa -p '${{ secrets.SSH_PORT }}' -o StrictHostKeyChecking=no" \
+            -e "ssh $SSH_OPTS" \
             templates/laravel/ \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy/laravel/
 
